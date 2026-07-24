@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
   bool inWindowPane = false;  // might remove?
   int file_currently_at = 2;
   // Music music = LoadMusicStream((char *)array[4]);
-  Music music = LoadMusicStream("YOUR_SONG.mp3");
+  Music music = LoadMusicStream("che_million_dollar.mp3");
   AttachAudioStreamProcessor(music.stream, callback);
   PlayMusicStream(music);
   while (!WindowShouldClose()) {

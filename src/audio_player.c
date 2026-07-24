@@ -109,9 +109,8 @@ int main(int argc, char *argv[]) {
   bool inWindowPane = false;  // might remove?
   int file_currently_at = 2;
   // Music music = LoadMusicStream((char *)array[4]);
-  Music music = LoadMusicStream("che_million_dollar.mp3");
-  AttachAudioStreamProcessor(music.stream, callback);
-  PlayMusicStream(music);
+  Music music;
+  bool isPlaying = false;
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(WHITE);
@@ -119,7 +118,9 @@ int main(int argc, char *argv[]) {
     DrawRectangle(0, 0, 200, HEIGHT, GRAY);
 
     // discreteFourierTransform(frameArray);
-    UpdateMusicStream(music);
+    if (isPlaying == true) {
+      UpdateMusicStream(music);
+    }
     // displayLeftPaneText();
     if (IsKeyPressed(KEY_H) &&
         (strcmp(currentState, "insideFileRightPane") == 0) &&
@@ -184,10 +185,13 @@ int main(int argc, char *argv[]) {
     } else if (IsKeyPressed(KEY_ENTER) &&
                (strcmp(currentState, "insideFileRightPane") == 0)) {
       if (strstr(((char *)(array[file_currently_at])), ".mp3") != NULL) {
-        StopMusicStream(music);
+        if (isPlaying == true) {
+          StopMusicStream(music);
+        }
         Music new_music = LoadMusicStream((char *)array[file_currently_at]);
         music = new_music;
         AttachAudioStreamProcessor(music.stream, callback);
+        isPlaying = true;
         WaitTime(0.35);
         PlayMusicStream(music);
       }

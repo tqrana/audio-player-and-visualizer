@@ -7,6 +7,7 @@
 #include <time.h>
 
 #include "math_visualization.h"
+#include "tag_c.h"
 
 #if defined(_WIN32)
 #include <conio.h>  // Windows only, no stardard library
@@ -28,7 +29,8 @@
 #define BUFFER_SIZE 512
 
 float frameArray[BUFFER_SIZE] = {0};
-
+TagLib_Tag *tag;
+TagLib_File *file;
 void callback(void *bufferData, unsigned int frames) {
   float *audioBuffer = (float *)bufferData;
   for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -83,8 +85,12 @@ void displayCurrentLeftPane(char *leftPaneState) {
   displayLeftPaneText();
 }
 
-void displayNowPlaying() {}
-void displayVisualizer() {}
+void displayNowPlaying(char *fileName) {
+  DrawText("title", 250, 250, 20, RED);
+  DrawText(taglib_tag_title(tag), 350, 250, 20, RED);
+  DrawText("artist", 250, 300, 20, RED);
+  DrawText(taglib_tag_artist(tag), 350, 300, 20, RED);
+}
 
 // change such that malloc is done after knowing directory size
 int main(int argc, char *argv[]) {
@@ -111,6 +117,7 @@ int main(int argc, char *argv[]) {
   // Music music = LoadMusicStream((char *)array[4]);
   Music music;
   bool isPlaying = false;
+  int arrayOfSongCurrentlyAt = 0;
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(WHITE);
@@ -136,11 +143,12 @@ int main(int argc, char *argv[]) {
         currentState = "insideFileRightPane";
         leftPaneState = "insideRightPane";
       } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-        displayNowPlaying();
+        if (isPlaying == true) {
+          displayNowPlaying((char *)array[arrayOfSongCurrentlyAt]);
+        }
         currentState = "insideFileRightPane";
         leftPaneState = "insideRightPane";
       } else if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {
-        displayVisualizer();
         currentState = "insideFileRightPane";
         leftPaneState = "insideRightPane";
       }
@@ -154,6 +162,8 @@ int main(int argc, char *argv[]) {
       } else {
         printFilePane(array, num_files, file_currently_at);
       }
+
+      displayCurrentLeftPane(leftPaneState);
     } else if (IsKeyPressed(KEY_K) &&
                (strcmp(currentState, "insideFileRightPane") == 0)) {
       if ((file_currently_at - 1) >= 2) {
@@ -162,6 +172,8 @@ int main(int argc, char *argv[]) {
       } else {
         printFilePane(array, num_files, file_currently_at);
       }
+
+      displayCurrentLeftPane(leftPaneState);
     } else if (IsKeyPressed(KEY_J) && (strcmp(currentState, "leftPane") == 0)) {
       if (strcmp(leftPaneState, "hoverOnDirectory") == 0) {
         rightPaneState = "nowPlaying";
@@ -189,11 +201,16 @@ int main(int argc, char *argv[]) {
           StopMusicStream(music);
         }
         Music new_music = LoadMusicStream((char *)array[file_currently_at]);
+        arrayOfSongCurrentlyAt = file_currently_at;
         music = new_music;
+        file = taglib_file_new((char *)array[file_currently_at]);
+
+        tag = taglib_file_tag(file);
         AttachAudioStreamProcessor(music.stream, callback);
         isPlaying = true;
         WaitTime(0.35);
         PlayMusicStream(music);
+        displayCurrentLeftPane(leftPaneState);
       }
       printFilePane(array, num_files, file_currently_at);
     } else if (strcmp(currentState, "insideFileRightPane") == 0) {
@@ -204,7 +221,9 @@ int main(int argc, char *argv[]) {
       if (strcmp(rightPaneState, "file_pane") == 0) {
         printFilePane(array, num_files, -1);
       } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-        displayNowPlaying();
+        if (isPlaying == true) {
+          displayNowPlaying((char *)array[arrayOfSongCurrentlyAt]);
+        }
       } else if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {
         discreteFourierTransform(frameArray);
       }

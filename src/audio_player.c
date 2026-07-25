@@ -118,6 +118,7 @@ int main(int argc, char *argv[]) {
   Music music;
   bool isPlaying = false;
   int arrayOfSongCurrentlyAt = 0;
+  bool isPaused = false;
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(WHITE);
@@ -172,7 +173,6 @@ int main(int argc, char *argv[]) {
       } else {
         printFilePane(array, num_files, file_currently_at);
       }
-
       displayCurrentLeftPane(leftPaneState);
     } else if (IsKeyPressed(KEY_J) && (strcmp(currentState, "leftPane") == 0)) {
       if (strcmp(leftPaneState, "hoverOnDirectory") == 0) {
@@ -183,6 +183,18 @@ int main(int argc, char *argv[]) {
         rightPaneState = "visualizer";
         leftPaneState = "hoverOnVisualizer";
         displayCurrentLeftPane(leftPaneState);
+      }
+    } else if (IsKeyPressed(KEY_SPACE)) {
+      if (isPlaying == true && isPaused == true) {
+        PlayMusicStream(music);
+        isPaused = false;
+      } else if (isPlaying == true && isPaused == false) {
+        PauseMusicStream(music);
+        isPaused = true;
+      }
+      displayCurrentLeftPane(leftPaneState);
+      if ((strcmp(currentState, "insideFileRightPane") == 0)) {
+        printFilePane(array, num_files, file_currently_at);
       }
     } else if (IsKeyPressed(KEY_K) && (strcmp(currentState, "leftPane") == 0)) {
       if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {

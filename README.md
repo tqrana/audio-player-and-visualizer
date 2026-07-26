@@ -93,12 +93,7 @@ The player scans the current working directory on startup and lists its contents
 This is very much a work-in-progress hobby project. Some known rough edges:
 
 - **macOS-only cover art conversion**: album art conversion from JPEG to PNG shells out to macOS's `sips` utility (`system("sips -s format png ...")`). On Linux or Windows this will silently fail and no cover art will be shown.
-- **Windows keyboard input is unused dead code**: `conio.h` is conditionally included for Windows, but `kbhit()`/`getch()` are never actually called — input is handled entirely through raylib's `IsKeyPressed`, and directory scanning uses POSIX `dirent.h`/`scandir`, which isn't available on Windows. Windows is not currently a supported target.
-- **No recursive directory browsing**: only files in the current working directory are listed; you cannot navigate into subdirectories from within the app.
-- **File type filtering happens on play, not on list**: the browser lists every entry in the directory (including non-audio files); only `.mp3` files can actually be played.
-- **Single hardcoded buffer size**: the audio callback and DFT visualizer operate on a fixed `BUFFER_SIZE` of 512 samples.
 - **The DFT is a naive O(n²) implementation**, not an FFT, so the visualizer's per-frame cost scales quadratically with `BUFFER_SIZE`.
-- **Global mutable state**: playback/tag/texture state (`tag`, `file`, `texture`, `isSuccessful`, `frameArray`) is held in global variables rather than passed explicitly, which makes the control flow harder to follow and the code non-reentrant.
 
 ## Roadmap Ideas
 

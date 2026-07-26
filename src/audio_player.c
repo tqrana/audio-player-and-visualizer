@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <time.h>
 
+#include "get_album_cover.h"
 #include "math_visualization.h"
 #include "tag_c.h"
 
@@ -22,7 +23,7 @@
 #include "raylib.h"
 
 #define KEY_ESCAPE 27
-#define WIDTH 1500
+#define WIDTH 1024
 #define HEIGHT 600
 #define SONGTITLESPACING 100
 
@@ -31,6 +32,10 @@
 float frameArray[BUFFER_SIZE] = {0};
 TagLib_Tag *tag;
 TagLib_File *file;
+
+bool isSuccessful = false;
+Texture2D texture;
+Image img;
 void callback(void *bufferData, unsigned int frames) {
   float *audioBuffer = (float *)bufferData;
   for (int i = 0; i < BUFFER_SIZE; i++) {
@@ -86,10 +91,13 @@ void displayCurrentLeftPane(char *leftPaneState) {
 }
 
 void displayNowPlaying(char *fileName) {
-  DrawText("title", 250, 250, 20, RED);
-  DrawText(taglib_tag_title(tag), 350, 250, 20, RED);
-  DrawText("artist", 250, 300, 20, RED);
-  DrawText(taglib_tag_artist(tag), 350, 300, 20, RED);
+  if (isSuccessful == true) {
+    DrawTexture(texture, 200, 0, WHITE);
+  }
+  DrawText("title", 250, 50, 20, RED);
+  DrawText(taglib_tag_title(tag), 300, 50, 20, RED);
+  DrawText("artist", 250, 100, 20, RED);
+  DrawText(taglib_tag_artist(tag), 350, 100, 20, RED);
 }
 
 // change such that malloc is done after knowing directory size
@@ -129,6 +137,7 @@ int main(int argc, char *argv[]) {
     if (isPlaying == true) {
       UpdateMusicStream(music);
     }
+
     // displayLeftPaneText();
     if (IsKeyPressed(KEY_H) &&
         (strcmp(currentState, "insideFileRightPane") == 0) &&
@@ -216,15 +225,23 @@ int main(int argc, char *argv[]) {
         arrayOfSongCurrentlyAt = file_currently_at;
         music = new_music;
         file = taglib_file_new((char *)array[file_currently_at]);
-
         tag = taglib_file_tag(file);
+
+        createAlbumImage(array[file_currently_at], &isSuccessful);
+        if (isSuccessful == true) {
+          system(
+              "sips -s format png cover.jpg --out cover.png >/dev/null 2>&1");
+          if (texture.id != 0) UnloadTexture(texture);
+          texture = LoadTexture("cover.png");
+          printf("texture.id=%u width=%d height=%d\n", texture.id,
+                 texture.width, texture.height);
+        }
+
         AttachAudioStreamProcessor(music.stream, callback);
         isPlaying = true;
         WaitTime(0.35);
         PlayMusicStream(music);
-        displayCurrentLeftPane(leftPaneState);
       }
-      printFilePane(array, num_files, file_currently_at);
     } else if (strcmp(currentState, "insideFileRightPane") == 0) {
       printFilePane(array, num_files, file_currently_at);
       displayCurrentLeftPane(leftPaneState);
@@ -240,11 +257,18 @@ int main(int argc, char *argv[]) {
         discreteFourierTransform(frameArray);
       }
     }
+    if (isPlaying == true && isPaused == false) {
+      DrawText("Playing", 680, 500, 20, RED);
+    } else if (isPlaying == true && isPaused == true) {
+      PauseMusicStream(music);
+      DrawText("Paused", 680, 500, 20, BLUE);
+    }
     EndDrawing();
   }
 
   UnloadMusicStream(music);
   CloseAudioDevice();
+  UnloadTexture(texture);
   CloseWindow();
   return 0;
 }

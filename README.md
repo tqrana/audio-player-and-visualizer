@@ -90,7 +90,7 @@ The player scans the current working directory on startup and lists its contents
 
 ## Known Limitations
 
-This is very much a work-in-progress hobby project. Some known rough edges:
+This is a work-in-progress hobby project. Some known rough edges:
 
 - **macOS-only cover art conversion**: album art conversion from JPEG to PNG shells out to macOS's `sips` utility (`system("sips -s format png ...")`). On Linux or Windows this will silently fail and no cover art will be shown.
 - **The DFT is a naive O(n²) implementation**, not an FFT, so the visualizer's per-frame cost scales quadratically with `BUFFER_SIZE`.

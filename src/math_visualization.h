@@ -1,7 +1,11 @@
 #ifndef MATH_VISUALIZATION
 #define MATH_VISUALIZATION
 
-void discreteFourierTransform(
-    float *audioBuffer);  // perform a discrete Fourier Transform on a buffer
+// #include "uirendering.h"
+#include "raylib.h"
 
-#endif  // audioBuffer
+void dFT(float audioBufferValue);
+// perform discrete Fourier Transform on an audio buffer
+
+// void updateUIState(Music *music, UIState *pointer);
+#endif

@@ -8,9 +8,15 @@ https://github.com/user-attachments/assets/50f20333-15e1-4a00-8ae2-8e74e8b3dd1a
 
 A lightweight desktop MP3 player with a vim-inspired keyboard interface, built in C with [raylib](https://www.raylib.com/) for rendering. It browses the current directory for music files, reads ID3 metadata with TagLib, extracts embedded album art with libid3tag, and renders a live discrete Fourier transform (DFT) visualizer of the currently playing track! Future plans: more visualization modes with different mathematical formulas, and more.
 
+## version 0.1
+1. removed global variables, generally ([frowned upon in C](https://www.forrestthewoods.com/blog/global-variables-are-evil-and-unsafe/))
+    - used  [stdatomic.h](https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/stdatomic.h.html) to do so; in Raylib for the callback function, which is attached to the audio stream in order to get data from the stream, there is no option to pass in user/other data, only the buffer data/frames are passed through. To allow for a global variable to determine if the visualizer data is to be displayed and calculated, an atomic state variable is created to keep track of if the user is in the visualizer mode. This allows for the O(n^2) calculations only to be performed if in the visualizer mode.
+2. use "typedef enum" for game states, curtailing magic numbers, and replacing the inefficient/naive string comparison for game states.
+
+
 ## Features
 
-- **Vim-keybindings for navigation** — move around the UI using `h` / `j` / `k` / `l`, no mouse required.
+- **Vim-keybindings for navigation** — move around the UI using `h` / `j` / `k` / `l`
 - **Directory browser** — lists files in the current working directory and lets you scroll through them.
 - **MP3 playback** — play, pause, and resume tracks via raylib's audio streaming.
 - **Tag display** — shows title and artist read from the file's ID3 tags (via TagLib).
@@ -33,24 +39,12 @@ A lightweight desktop MP3 player with a vim-inspired keyboard interface, built i
 
 The left pane has three sections: **Directory**, **Now Playing**, and **Visualizer**. Navigate into the directory listing with `h`, pick a track with `j` / `k`, and press `Enter` to play it.
 
-## Project Structure
-
-```
-.
-├── audio_player.c        # Main application: window/event loop, UI state machine, playback
-├── get_album_cover.c      # Extracts embedded album art (APIC frame) from ID3 tags
-├── get_album_cover.h
-├── math_visualization.c   # Discrete Fourier transform + bar visualizer rendering
-├── math_visualization.h
-└── id3tag.h                # libid3tag header
-```
-
 ## Dependencies
 
 - [raylib](https://www.raylib.com/) — windowing, input, drawing, and audio streaming
 - [TagLib](https://taglib.org/) (C bindings, `tag_c.h`) — reading ID3 title/artist tags
 - [libid3tag](https://github.com/DarkAudax/libid3tag) — low-level ID3 frame access for album art extraction
-- macOS `sips` command-line tool — used to convert extracted JPEG cover art to PNG (see [Known Limitations](#known-limitations)) Future updates will have cross-platform support
+- macOS `sips` command-line tool — used to convert extracted JPEG cover art to PNG 
 
 ### Installing dependencies (macOS via Homebrew)
 
@@ -63,7 +57,7 @@ brew install raylib taglib libid3tag
 ```bash
 sudo apt install libraylib-dev libtag1-dev libid3tag0-dev
 ```
-> Note: on Linux you'll also need to replace the `sips` calls in `audio_player.c` and `get_album_cover.c` with an equivalent (e.g. ImageMagick's `convert`) — see [Known Limitations](#known-limitations).
+> Note: on Linux you'll also need to replace the `sips` calls in `audio_player.c` and `get_album_cover.c` with an equivalent (e.g. ImageMagick's `convert`) 
 
 ## Building
 
@@ -95,12 +89,4 @@ This is a work-in-progress hobby project. Some known rough edges:
 - **macOS-only cover art conversion**: album art conversion from JPEG to PNG shells out to macOS's `sips` utility (`system("sips -s format png ...")`). On Linux or Windows this will silently fail and no cover art will be shown.
 - **The DFT is a naive O(n²) implementation**, not an FFT, so the visualizer's per-frame cost scales quadratically with `BUFFER_SIZE`.
 
-## Roadmap Ideas
-
-- Cross-platform image conversion (drop the `sips` dependency)
-- Recursive/nested directory navigation
-- Filter the file list to audio files only
-- Replace the naive DFT with an FFT for performance
-- Volume control and seek/scrub support
-- Playlist support
 

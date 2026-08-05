@@ -71,7 +71,7 @@ sudo apt install libraylib-dev libtag1-dev libid3tag0-dev
 Compile all sources together and link against raylib, TagLib's C bindings, and libid3tag:
 
 ```bash
-gcc audio_player.c get_album_cover.c math_visualization.c \
+gcc audio_player.c directory_rendering.c math_visualization.c \
     -o audio_player \
     -lraylib -ltag_c -lid3tag -lm
 ```

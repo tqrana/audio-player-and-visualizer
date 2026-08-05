@@ -12,7 +12,14 @@ A lightweight desktop MP3 player with a vim-inspired keyboard interface, built i
 1. removed global variables, generally ([frowned upon in C](https://www.forrestthewoods.com/blog/global-variables-are-evil-and-unsafe/))
     - used  [stdatomic.h](https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/stdatomic.h.html) to do so; in Raylib for the callback function, which is attached to the audio stream in order to get data from the stream, there is no option to pass in user/other data, only the buffer data/frames are passed through. To allow for a global variable to determine if the visualizer data is to be displayed and calculated, an atomic state variable is created to keep track of if the user is in the visualizer mode. This allows for the O(n^2) calculations only to be performed if in the visualizer mode.
 2. use "typedef enum" for game states, curtailing magic numbers, and replacing the inefficient/naive string comparison for game states.
+3. New file traversal method similar to ps3 ui, where the currently selected file remains in the same position on screen, with other files moving up/down
+4. Add support for ogg, wav, on top of mp3
 
+## TODO
+1. [ ] incorporate the metadata/album cover retrieval code/headers into version 0.1 audio_player.c, + add in Now Playing section
+2. [ ] retrieve APIC data from scratch without libraries
+3. [ ] add shuffle
+4. [ ] add more colors to the visualizer instead of solid red 
 
 ## Features
 

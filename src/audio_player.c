@@ -1,14 +1,10 @@
-#define _XOPEN_SOURCE 700
 #include <dirent.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-
-#include "get_album_cover.h"
-#include "math_visualization.h"
-#include "tag_c.h"
 
 #if defined(_WIN32)
 #include <conio.h>  // Windows only, no stardard library
@@ -20,255 +16,143 @@
 #include <unistd.h>
 #endif
 
+// #include "audio_playback.h"
+#include "directoryrendering.h"
+#include "math_visualization.h"
 #include "raylib.h"
-
-#define KEY_ESCAPE 27
-#define WIDTH 1024
-#define HEIGHT 600
-#define SONGTITLESPACING 100
+#include "uirendering.h"
+#define WIDTH 1000
+#define HEIGHT 1000
 
 #define BUFFER_SIZE 512
 
-float frameArray[BUFFER_SIZE] = {0};
-TagLib_Tag *tag;
-TagLib_File *file;
+static atomic_int visualizerActive = 0;
 
-bool isSuccessful = false;
-Texture2D texture;
-Image img;
+void setVisualizerActive(bool isActive) {
+  atomic_store(&visualizerActive, ((isActive == true) ? 1 : 0));
+}
+
 void callback(void *bufferData, unsigned int frames) {
-  float *audioBuffer = (float *)bufferData;
-  for (int i = 0; i < BUFFER_SIZE; i++) {
-    frameArray[i] = (audioBuffer[i * 2] + audioBuffer[i * 2 + 1]) / 2;
-  }
-  // discreteFourierTransform(frameArray);
-}
-void obtainMusicFiles(char **fileArray, struct dirent **list, int count) {
-  if (count < 0) {
-    perror("Couldn't open the directory");
-    exit(1);
-  }
-  printf("%u items in directory\n", count);
-  for (int i = 0; i < count; i++) {
-    fileArray[i] = list[i]->d_name;
+  if (!(atomic_load(&visualizerActive) == 1)) return;
+  float (*audioBuffer)[2] = bufferData;
+  for (int i = 0; i < 512; i++) {
+    dFT(audioBuffer[i][0]);
   }
 }
 
-void printFilePane(char **fileArray, int num_files, int file_currently_at) {
-  int y_pos = 20;
-  for (int i = 2; i < num_files; i++) {
-    if (i == file_currently_at) {
-      DrawText(fileArray[i], 250, y_pos, 18, RED);
-    } else {
-      DrawText(fileArray[i], 250, y_pos, 18, BLACK);
+void updateInsidePane(int *indexFileSelected,
+                      char **fileNames, bool *musicPlaying, Music *music,
+                      int *numFile) {
+  bool emptyDir = false;
+
+  if (IsKeyPressed(KEY_J)) {
+    if ((*indexFileSelected + 1) <= (*numFile - 1)) {
+      *indexFileSelected = *indexFileSelected + 1;
     }
-    y_pos += SONGTITLESPACING;
+  }
+  if (IsKeyPressed(KEY_K)) {
+    if ((*indexFileSelected - 1) >= 0) {
+      *indexFileSelected = *indexFileSelected - 1;
+    }
+  }
+  if (IsKeyPressed(KEY_ENTER) && !emptyDir) {
+    if (strstr(fileNames[*indexFileSelected], ".mp3") != NULL ||
+        strstr(fileNames[*indexFileSelected], ".wav") != NULL ||
+        strstr(fileNames[*indexFileSelected], ".ogg") != NULL) {
+      if (*musicPlaying) StopMusicStream(*music);
+      *music = LoadMusicStream(fileNames[*indexFileSelected]);
+      AttachAudioStreamProcessor((*music).stream, callback);
+      *musicPlaying = true;
+      WaitTime(0.1);
+
+      PlayMusicStream(*music);
+    }
+  } else if (IsKeyPressed(KEY_R)) {
+    struct dirent **new;
+    int num_files = scandir(".", &new, NULL, alphasort);
+    char **newFileNames = malloc(num_files * sizeof(char *));
+    int offset = num_files - *numFile;
+    fileNames =
+        (char **)realloc(fileNames, (*numFile + offset) * sizeof(char *));
+    if (num_files != 0) {
+      for (int i = 0; i < num_files; i++) {
+        fileNames[i] = new[i]->d_name;
+      }
+    }
+
+    *numFile = num_files;
+  }
+  if (!emptyDir) {
+    for (int i = *indexFileSelected; i > (*indexFileSelected - 3); i--) {
+      if (i >= 0) {
+        DrawText(fileNames[i], 300, 300 - 40 * (*indexFileSelected - i), 20, BLUE);
+      }
+    }
+    for (int i = *indexFileSelected; i < (*indexFileSelected + 3); i++) {
+      if (i <= (*numFile - 1)) {
+        DrawText(fileNames[i], 300, 40 * (i - *indexFileSelected) + 300, 20, BLUE);
+      }
+    }
+    DrawText(fileNames[*indexFileSelected], 300, 300, 20, RED);
   }
 }
 
-void displayLeftPaneText() {
-  DrawText("Directory", 75, 50, 15, BLACK);
-  DrawText("Now Playing", 75, 150, 15, BLACK);
-  DrawText("Visualizer", 75, 250, 15, BLACK);
-}
 
-void displayCurrentLeftPane(char *leftPaneState) {
-  DrawRectangle(0, 0, 200, HEIGHT, GRAY);
-  if (strcmp(leftPaneState, "hoverOnDirectory") == 0) {
-    DrawRectangle(0, 0, 200, HEIGHT, GRAY);
-    DrawRectangle(0, 0, 200, 100, BLUE);
-    displayLeftPaneText();
-  } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-    DrawRectangle(0, 0, 200, HEIGHT, GRAY);
-    DrawRectangle(0, 100, 200, 100, BLUE);
-    displayLeftPaneText();
-  } else if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {
-    DrawRectangle(0, 0, 200, HEIGHT, GRAY);
-    DrawRectangle(0, 200, 200, 100, BLUE);
-    displayLeftPaneText();
-  }
-  displayLeftPaneText();
-}
-
-void displayNowPlaying(char *fileName) {
-  if (isSuccessful == true) {
-    DrawTexture(texture, 200, 0, WHITE);
-  }
-  DrawText("title", 250, 50, 20, RED);
-  DrawText(taglib_tag_title(tag), 300, 50, 20, RED);
-  DrawText("artist", 250, 100, 20, RED);
-  DrawText(taglib_tag_artist(tag), 350, 100, 20, RED);
-}
-
-// change such that malloc is done after knowing directory size
 int main(int argc, char *argv[]) {
-  DIR *dp;
-  struct dirent **list;
-  int num_files = scandir(".", &list, NULL, alphasort);
-  char **array = (char **)malloc(num_files * sizeof(char[1024]));
-  obtainMusicFiles(array, list, num_files);
-  printf("%s\n", array[1]);
   static unsigned char key = 0;
   InitWindow(WIDTH, HEIGHT, "Audio Player");
   SetTargetFPS(60);
   InitAudioDevice();
 
-  // char *uiState[] = {"rightMainGUI", "leftPane"};
-  //
-  char *currentState = "insideFileRightPane";
-  char *rightPaneState =
-      "file_pane";  // add into while loop once more panes are added
-  char *leftPaneState = "insideRightPane";
-  char *selectionInFilePane = "firstFileInDirectory";
-  bool inWindowPane = false;  // might remove?
-  int file_currently_at = 2;
-  // Music music = LoadMusicStream((char *)array[4]);
   Music music;
-  bool isPlaying = false;
-  int arrayOfSongCurrentlyAt = 0;
+  struct dirent **list;
+  int num_files = scandir(".", &list, NULL, alphasort);
+  char **fileNames = malloc(num_files * sizeof(char *));
+  DIR *dr = opendir(".");
+  bool emptyDir = false;
+  if (dr == NULL) {
+    DrawText("NO FILES FOUND", 500, 300, 30, RED);
+    emptyDir = true;
+  }
+
+  for (int i = 0; i < num_files; i++) {
+    fileNames[i] = list[i]->d_name;
+  }
+  int indexFileSelected = 0;
+  // PlayMusicStream(music);
+  UIState state = INSIDE_FILE_PANE;
+  bool musicPlaying = false;
   bool isPaused = false;
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(WHITE);
-
-    DrawRectangle(0, 0, 200, HEIGHT, GRAY);
-
-    // discreteFourierTransform(frameArray);
-    if (isPlaying == true) {
+    if (musicPlaying) {
       UpdateMusicStream(music);
     }
-
-    // displayLeftPaneText();
-    if (IsKeyPressed(KEY_H) &&
-        (strcmp(currentState, "insideFileRightPane") == 0) &&
-        inWindowPane == false) {
-      printFilePane(array, num_files, -1);
-      displayCurrentLeftPane(leftPaneState);
-      currentState = "leftPane";
-      leftPaneState = "hoverOnDirectory";
-      inWindowPane = true;
-    } else if (IsKeyPressed(KEY_L) && (strcmp(currentState, "leftPane") == 0)) {
-      if (strcmp(leftPaneState, "hoverOnDirectory") == 0) {
-        printFilePane(array, num_files, file_currently_at);
-        currentState = "insideFileRightPane";
-        leftPaneState = "insideRightPane";
-      } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-        if (isPlaying == true) {
-          displayNowPlaying((char *)array[arrayOfSongCurrentlyAt]);
-        }
-        currentState = "insideFileRightPane";
-        leftPaneState = "insideRightPane";
-      } else if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {
-        currentState = "insideFileRightPane";
-        leftPaneState = "insideRightPane";
-      }
-      displayCurrentLeftPane(leftPaneState);
-      inWindowPane = false;
-    } else if (IsKeyPressed(KEY_J) &&
-               (strcmp(currentState, "insideFileRightPane") == 0)) {
-      if ((file_currently_at + 1) < num_files) {
-        file_currently_at++;
-        printFilePane(array, num_files, file_currently_at);
-      } else {
-        printFilePane(array, num_files, file_currently_at);
-      }
-
-      displayCurrentLeftPane(leftPaneState);
-    } else if (IsKeyPressed(KEY_K) &&
-               (strcmp(currentState, "insideFileRightPane") == 0)) {
-      if ((file_currently_at - 1) >= 2) {
-        file_currently_at = file_currently_at - 1;
-        printFilePane(array, num_files, file_currently_at);
-      } else {
-        printFilePane(array, num_files, file_currently_at);
-      }
-      displayCurrentLeftPane(leftPaneState);
-    } else if (IsKeyPressed(KEY_J) && (strcmp(currentState, "leftPane") == 0)) {
-      if (strcmp(leftPaneState, "hoverOnDirectory") == 0) {
-        rightPaneState = "nowPlaying";
-        leftPaneState = "hoverOnNowPlaying";
-        displayCurrentLeftPane(leftPaneState);
-      } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-        rightPaneState = "visualizer";
-        leftPaneState = "hoverOnVisualizer";
-        displayCurrentLeftPane(leftPaneState);
-      }
-    } else if (IsKeyPressed(KEY_SPACE)) {
-      if (isPlaying == true && isPaused == true) {
-        PlayMusicStream(music);
-        isPaused = false;
-      } else if (isPlaying == true && isPaused == false) {
-        PauseMusicStream(music);
-        isPaused = true;
-      }
-      displayCurrentLeftPane(leftPaneState);
-      if ((strcmp(currentState, "insideFileRightPane") == 0)) {
-        printFilePane(array, num_files, file_currently_at);
-      }
-    } else if (IsKeyPressed(KEY_K) && (strcmp(currentState, "leftPane") == 0)) {
-      if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {
-        rightPaneState = "nowPlaying";
-        leftPaneState = "hoverOnNowPlaying";
-        displayCurrentLeftPane(leftPaneState);
-      } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-        rightPaneState = "file_pane";
-        leftPaneState = "hoverOnDirectory";
-        displayCurrentLeftPane(leftPaneState);
-      }
-    } else if (IsKeyPressed(KEY_ENTER) &&
-               (strcmp(currentState, "insideFileRightPane") == 0)) {
-      if (strstr(((char *)(array[file_currently_at])), ".mp3") != NULL) {
-        if (isPlaying == true) {
-          StopMusicStream(music);
-        }
-        Music new_music = LoadMusicStream((char *)array[file_currently_at]);
-        arrayOfSongCurrentlyAt = file_currently_at;
-        music = new_music;
-        file = taglib_file_new((char *)array[file_currently_at]);
-        tag = taglib_file_tag(file);
-
-        createAlbumImage(array[file_currently_at], &isSuccessful);
-        if (isSuccessful == true) {
-          system(
-              "sips -s format png cover.jpg --out cover.png >/dev/null 2>&1");
-          if (texture.id != 0) UnloadTexture(texture);
-          texture = LoadTexture("cover.png");
-          printf("texture.id=%u width=%d height=%d\n", texture.id,
-                 texture.width, texture.height);
-        }
-
-        AttachAudioStreamProcessor(music.stream, callback);
-        isPlaying = true;
-        WaitTime(0.35);
-        PlayMusicStream(music);
-      }
-    } else if (strcmp(currentState, "insideFileRightPane") == 0) {
-      printFilePane(array, num_files, file_currently_at);
-      displayCurrentLeftPane(leftPaneState);
-    } else {
-      displayCurrentLeftPane(leftPaneState);
-      if (strcmp(rightPaneState, "file_pane") == 0) {
-        printFilePane(array, num_files, -1);
-      } else if (strcmp(leftPaneState, "hoverOnNowPlaying") == 0) {
-        if (isPlaying == true) {
-          displayNowPlaying((char *)array[arrayOfSongCurrentlyAt]);
-        }
-      } else if (strcmp(leftPaneState, "hoverOnVisualizer") == 0) {
-        discreteFourierTransform(frameArray);
-      }
+    updateUIState(&state);
+    if (state == INSIDE_FILE_PANE) {
+      updateInsidePane(&indexFileSelected, fileNames,
+                       &musicPlaying, &music, &num_files);
     }
-    if (isPlaying == true && isPaused == false) {
-      DrawText("Playing", 680, 500, 20, RED);
-    } else if (isPlaying == true && isPaused == true) {
-      PauseMusicStream(music);
-      DrawText("Paused", 680, 500, 20, BLUE);
+
+    if (IsKeyPressed(KEY_SPACE)) {
+        if (musicPlaying == true && isPaused == false) {
+            PauseMusicStream(music);
+            isPaused = true;
+        } else if (musicPlaying == true && isPaused == true) {
+           ResumeMusicStream(music);
+           isPaused = false;
+        }
     }
+
+    setVisualizerActive(state == VISUALIZER_PANE_SELECTION);
+
     EndDrawing();
   }
-
+  free(fileNames);
   UnloadMusicStream(music);
   CloseAudioDevice();
-  UnloadTexture(texture);
   CloseWindow();
+  closedir(dr);
   return 0;
 }

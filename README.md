@@ -90,4 +90,4 @@ This is a work-in-progress hobby project. Some known rough edges:
 - **macOS-only cover art conversion**: album art conversion from JPEG to PNG shells out to macOS's `sips` utility (`system("sips -s format png ...")`). On Linux or Windows this will silently fail and no cover art will be shown.
 - **The DFT is a naive O(n²) implementation**, not an FFT, so the visualizer's per-frame cost scales quadratically with `BUFFER_SIZE`.
 
-
+Note: Part of this README was generated with an AI agent. This was the only usage of AI for this project :).

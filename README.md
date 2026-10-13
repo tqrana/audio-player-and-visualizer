@@ -1,9 +1,3 @@
-
-
-https://github.com/user-attachments/assets/50f20333-15e1-4a00-8ae2-8e74e8b3dd1a
-
-
-
 # Terminal-Style Audio Player
 
 A lightweight desktop MP3 player with a vim-inspired keyboard interface, built in C with [raylib](https://www.raylib.com/) for rendering. It browses the current directory for music files, reads ID3 metadata with TagLib, extracts embedded album art with libid3tag, and renders a live discrete Fourier transform (DFT) visualizer of the currently playing track! Future plans: more visualization modes with different mathematical formulas, and more.
